@@ -46,9 +46,11 @@ def calculate_percentage_change(baseline: float, candidate: float) -> Tuple[floa
 def compute_comparison_metrics(
     best_first: Dict[str, Any],
     idastar: Dict[str, Any],
+    tol: str = "1e-4",
+    normalize: str = "1",
 ) -> Dict[str, Any]:
     """
-    Computes comparative deltas and percentage ratios between Best-First and IDA*.
+    Computes comparative deltas, percentage ratios, and tolerance-aware parity.
     """
     bf_mem = best_first["peak_rss_mb"]
     ida_mem = idastar["peak_rss_mb"]
@@ -77,9 +79,37 @@ def compute_comparison_metrics(
         bf_total_bounds, ida_total_bounds
     )
 
-    lower_match = abs(best_first["lower"] - idastar["lower"]) < 1e-12
-    upper_match = abs(best_first["upper_max"] - idastar["upper_max"]) < 1e-12
-    exact_parity = lower_match and upper_match
+    # Tolerance-aware convergence parity validation
+    tol_float = float(tol)
+    dA = best_first.get("dA", 1.0)
+    tol_scaled = tol_float * dA if int(normalize) else tol_float
+
+    bf_gap = best_first["upper_max"] - best_first["lower"]
+    ida_gap = idastar["upper_max"] - idastar["lower"]
+    both_within_tolerance = (bf_gap <= tol_scaled * 1.0001) and (ida_gap <= tol_scaled * 1.0001)
+
+    lower_diff = abs(best_first["lower"] - idastar["lower"])
+    upper_diff = abs(best_first["upper_max"] - idastar["upper_max"])
+
+    lower_status = (
+        "Identical" if lower_diff < 1e-8
+        else ("Within Tol" if lower_diff <= tol_scaled else "Mismatch")
+    )
+    upper_status = (
+        "Identical" if upper_diff < 1e-8
+        else ("Within Tol" if upper_diff <= tol_scaled else "Mismatch")
+    )
+
+    intervals_overlap = not (
+        best_first["upper_max"] < idastar["lower"] or idastar["upper_max"] < best_first["lower"]
+    )
+
+    if lower_diff < 1e-8 and upper_diff < 1e-8:
+        parity_summary = "EXACT MATCH"
+    elif both_within_tolerance and intervals_overlap:
+        parity_summary = "CONVERGED (Within Tolerance)"
+    else:
+        parity_summary = "DIVERGENCE DETECTED"
 
     return {
         "mem_delta_mb": mem_delta_mb,
@@ -99,7 +129,11 @@ def compute_comparison_metrics(
         "ida_total_bounds": ida_total_bounds,
         "bounds_pct": bounds_pct,
         "bounds_pct_str": bounds_pct_str,
-        "exact_parity": exact_parity,
+        "lower_status": lower_status,
+        "upper_status": upper_status,
+        "tol_scaled": tol_scaled,
+        "exact_parity": (lower_diff < 1e-8 and upper_diff < 1e-8),
+        "parity_summary": parity_summary,
     }
 
 
@@ -171,13 +205,16 @@ def format_table(
     # 4. Numerical convergence
     lines.append(separator)
     lines.append(
-        f"{'Computed Lower Bound':<28} | {bf['lower']:>18.8f} | {ida['lower']:>18.8f} | {'Identical' if cmp['exact_parity'] else 'Mismatch':>18}"
+        f"{'Computed Lower Bound':<28} | {bf['lower']:>18.8f} | {ida['lower']:>18.8f} | {cmp['lower_status']:>18}"
     )
     lines.append(
-        f"{'Computed Upper Bound':<28} | {bf['upper_max']:>18.8f} | {ida['upper_max']:>18.8f} | {'Identical' if cmp['exact_parity'] else 'Mismatch':>18}"
+        f"{'Computed Upper Bound':<28} | {bf['upper_max']:>18.8f} | {ida['upper_max']:>18.8f} | {cmp['upper_status']:>18}"
     )
     lines.append(
         f"{'Final Bound Gap':<28} | {(bf['upper_max'] - bf['lower']):>18.8f} | {(ida['upper_max'] - ida['lower']):>18.8f} | {'-':>18}"
+    )
+    lines.append(
+        f"{'Max Allowed Gap (tol*dA)':<28} | {cmp['tol_scaled']:>18.8f} | {cmp['tol_scaled']:>18.8f} | {'Target Tol':>18}"
     )
     lines.append("=" * 88)
 
@@ -205,8 +242,7 @@ def format_table(
         )
 
     lines.append(
-        f"- Parity:  Mathematical convergence parity: "
-        f"{'EXACT MATCH' if cmp['exact_parity'] else 'DIVERGENCE DETECTED'}."
+        f"- Parity:  Mathematical convergence parity: {cmp['parity_summary']}."
     )
     lines.append("=" * 88)
 
@@ -242,12 +278,13 @@ def export_markdown_report(
 | **CPU Time (User + System)** | {bf['cpu_time_ms']:.2f} ms | {ida['cpu_time_ms']:.2f} ms | {cmp['cpu_pct_str']} |
 | **Subdivided Faces** | {bf['subdivided_faces']:,d} | {ida['subdivided_faces']:,d} | {cmp['faces_pct_str']} ({cmp['faces_ratio']:.2f}x) |
 | **Total Upper Bound Calls** | {cmp['bf_total_bounds']:,d} | {cmp['ida_total_bounds']:,d} | {cmp['bounds_pct_str']} |
-| **Computed Lower Bound** | `{bf['lower']:.8f}` | `{ida['lower']:.8f}` | {'Exact Match' if cmp['exact_parity'] else 'Mismatch'} |
-| **Computed Upper Bound** | `{bf['upper_max']:.8f}` | `{ida['upper_max']:.8f}` | {'Exact Match' if cmp['exact_parity'] else 'Mismatch'} |
+| **Computed Lower Bound** | `{bf['lower']:.8f}` | `{ida['lower']:.8f}` | {cmp['lower_status']} |
+| **Computed Upper Bound** | `{bf['upper_max']:.8f}` | `{ida['upper_max']:.8f}` | {cmp['upper_status']} |
+| **Final Bound Gap** | `{(bf['upper_max'] - bf['lower']):.8f}` | `{(ida['upper_max'] - ida['lower']):.8f}` | Target: `{cmp['tol_scaled']:.8f}` |
 
 ## Key Insights
 - **Memory Optimization:** IDA* resident set size changed by **{cmp['mem_pct_str']}**, validating the bounded-memory hypothesis.
-- **Convergence Verification:** Both algorithms produced {'strictly identical' if cmp['exact_parity'] else 'divergent'} distance bounds within tolerance `{tol}`.
+- **Convergence Verification:** Mathematical convergence status: **{cmp['parity_summary']}** (within tolerance `{tol}`).
 """
     with open(target_path, "w", encoding="utf-8") as f:
         f.write(content)
@@ -289,6 +326,7 @@ def export_csv_row(
         "bf_upper",
         "ida_upper",
         "exact_parity",
+        "parity_summary",
     ]
 
     row = {
@@ -312,6 +350,7 @@ def export_csv_row(
         "bf_upper": bf["upper_max"],
         "ida_upper": ida["upper_max"],
         "exact_parity": cmp["exact_parity"],
+        "parity_summary": cmp["parity_summary"],
     }
 
     with open(target_path, "a", newline="", encoding="utf-8") as f:
@@ -418,7 +457,9 @@ def main() -> None:
     )
 
     # 3. Compute deltas & render comparative table
-    cmp_metrics = compute_comparison_metrics(bf_record, ida_record)
+    cmp_metrics = compute_comparison_metrics(
+        bf_record, ida_record, tol=args.tol, normalize=args.normalize
+    )
     table_output = format_table(
         args.mesh_a,
         args.mesh_b,
