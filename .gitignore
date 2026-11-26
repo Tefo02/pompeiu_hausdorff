@@ -43,6 +43,9 @@ benchmarks/*.csv
 *.prof
 *.log
 meshes/generated/
+meshes/*.obj
+!meshes/107100.obj
+!meshes/107100_sf.obj
 
 # IDE and OS
 .vscode/
