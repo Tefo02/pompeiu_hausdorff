@@ -358,6 +358,7 @@ def discover_base_meshes(
 def discover_existing_pairs(
     meshes_dir: str,
     max_size_mb: float,
+    include_lucy: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Detects known original/derived pairs already placed in meshes/.
@@ -375,7 +376,8 @@ def discover_existing_pairs(
         if not (os.path.isfile(path_a) and os.path.isfile(path_b)):
             continue
         size_a_mb = os.path.getsize(path_a) / (1024.0 * 1024.0)
-        if max_size_mb > 0.0 and size_a_mb > max_size_mb:
+        bypass_size_limit = include_lucy and pair_id == "existing_lucy_decimate05"
+        if not bypass_size_limit and max_size_mb > 0.0 and size_a_mb > max_size_mb:
             continue
         found.append(
             {
@@ -665,6 +667,11 @@ def main() -> None:
         help="Disable generation of synthetic analytical pairs (cube, icosphere)",
     )
     parser.add_argument(
+        "--include-lucy",
+        action="store_true",
+        help="Include the full-resolution original lucy.obj vs lucy-decimate05.obj pair bypassing --max-size-mb",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="List discovered base meshes and existing pairs without writing files",
@@ -684,7 +691,9 @@ def main() -> None:
         include_pattern=args.include_pattern,
         exclude_patterns=args.exclude_patterns,
     )
-    existing_pairs = discover_existing_pairs(args.meshes_dir, args.max_size_mb)
+    existing_pairs = discover_existing_pairs(
+        args.meshes_dir, args.max_size_mb, include_lucy=args.include_lucy
+    )
 
     print(f"Discovered {len(base_meshes)} base mesh(es) and {len(existing_pairs)} pre-existing pair(s).")
 
