@@ -7,6 +7,7 @@ SET(CMAKE_BUILD_TYPE Release)
 # option to build executable (default true)
 option(BUILD_EXECUTABLE "Build executable" ON)
 option(BUILD_PYTHON_BINDINGS "Build python bindings" OFF)
+option(BUILD_TESTS "Build C++ unit tests" ON)
 
 # Libigl
 include(libigl)
@@ -39,6 +40,16 @@ if(BUILD_EXECUTABLE)
   target_link_libraries(${EXECUTABLE_TARGET} ${LIBRARY_NAME} igl::core)
   # change name to pompeiu_hausdorff
   set_target_properties(${EXECUTABLE_TARGET} PROPERTIES OUTPUT_NAME pompeiu_hausdorff)
+endif()
+
+if(BUILD_TESTS)
+  enable_testing()
+  add_executable(test_idastar_parity tests/test_idastar_parity.cpp)
+  target_include_directories(test_idastar_parity PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(test_idastar_parity ${LIBRARY_NAME} igl::core)
+  target_compile_definitions(test_idastar_parity PRIVATE
+    TEST_MESHES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/meshes")
+  add_test(NAME idastar_parity COMMAND test_idastar_parity)
 endif()
   
   
