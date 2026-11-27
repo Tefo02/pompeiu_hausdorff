@@ -3,6 +3,7 @@
 
 #include <Eigen/Core>
 #include <igl/AABB.h>
+#include <cstddef>
 
 namespace phd {
 namespace search {
@@ -16,6 +17,27 @@ typedef igl::AABB<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>, 3> 
 enum class SearchEngineType {
     BestFirst,
     IDAStar
+};
+
+/**
+ * @brief Threshold scheduling policies for Iterative Deepening Branch-and-Bound (IDA*).
+ */
+enum class ThresholdPolicy {
+    NextBest,
+    FixedDecay,
+    AdaptiveHistogram
+};
+
+/**
+ * @brief Configuration parameters for IDAStarEngine threshold scheduling and shallow memoization.
+ */
+struct IDAStarConfig {
+    ThresholdPolicy threshold_policy = ThresholdPolicy::AdaptiveHistogram;
+    double initial_decay_factor = 0.25;
+    double min_decay_factor = 0.10;
+    double max_decay_factor = 0.50;
+    int max_cache_depth = 4;
+    std::size_t max_cache_entries = 65536;
 };
 
 /**
