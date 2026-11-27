@@ -160,8 +160,10 @@ def format_table(
     lines.append(f"Parameters:    tol={tol}, max_factor={max_factor}, normalize={normalize}")
     lines.append(f"Date & Time:   {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append("=" * 88)
+    baseline_label = bf.get("engine", "best_first")
+    candidate_label = ida.get("engine", "idastar")
     lines.append(
-        f"{'Metric':<28} | {'Best-First':<18} | {'IDA*':<18} | {'Delta (IDA* vs BF)':<18}"
+        f"{'Metric':<28} | {baseline_label:<18} | {candidate_label:<18} | {'Delta (Cand vs Base)':<18}"
     )
     lines.append(separator)
 
@@ -398,6 +400,25 @@ def main() -> None:
         default="1",
         help="Normalize bounds by bounding box diagonal (0 or 1, default: 1)",
     )
+    engine_choices = [
+        "best_first",
+        "idastar",
+        "idastar_nocache",
+        "idastar_fixed",
+        "idastar_next_best",
+    ]
+    parser.add_argument(
+        "--baseline-engine",
+        default="best_first",
+        choices=engine_choices,
+        help="Baseline engine for comparison (default: best_first)",
+    )
+    parser.add_argument(
+        "--candidate-engine",
+        default="idastar",
+        choices=engine_choices,
+        help="Candidate engine for comparison (default: idastar)",
+    )
     parser.add_argument(
         "--output-md",
         default=None,
@@ -430,8 +451,8 @@ def main() -> None:
     print(f"Tolerance:  {args.tol}")
     print("=" * 88)
 
-    # 1. Run Best-First
-    print("\n>>> [1/2] Executing Best-First Search Engine...")
+    # 1. Run Baseline Engine
+    print(f"\n>>> [1/2] Executing Baseline Engine ({args.baseline_engine})...")
     bf_record = run_isolated_profile(
         executable=args.executable,
         mesh_a=args.mesh_a,
@@ -439,12 +460,12 @@ def main() -> None:
         tol=args.tol,
         max_factor=args.max_factor,
         normalize=args.normalize,
-        engine="best_first",
+        engine=args.baseline_engine,
         verbose=not args.quiet,
     )
 
-    # 2. Run IDA*
-    print("\n>>> [2/2] Executing IDA* Search Engine...")
+    # 2. Run Candidate Engine
+    print(f"\n>>> [2/2] Executing Candidate Engine ({args.candidate_engine})...")
     ida_record = run_isolated_profile(
         executable=args.executable,
         mesh_a=args.mesh_a,
@@ -452,7 +473,7 @@ def main() -> None:
         tol=args.tol,
         max_factor=args.max_factor,
         normalize=args.normalize,
-        engine="idastar",
+        engine=args.candidate_engine,
         verbose=not args.quiet,
     )
 

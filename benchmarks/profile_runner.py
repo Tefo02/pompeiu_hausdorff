@@ -334,8 +334,8 @@ def main():
     parser.add_argument(
         "--engine",
         default="best_first",
-        choices=["best_first", "idastar"],
-        help="Search engine to evaluate (best_first | idastar)",
+        choices=["best_first", "idastar", "idastar_nocache", "idastar_fixed", "idastar_next_best"],
+        help="Search engine to evaluate (best_first | idastar | idastar_nocache | idastar_fixed | idastar_next_best)",
     )
     parser.add_argument("--runs", type=int, default=1, help="Number of repetitions to run")
     parser.add_argument(
