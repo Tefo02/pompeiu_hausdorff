@@ -28,6 +28,21 @@ PompeiuHausdorff::PompeiuHausdorff(
     const double max_factor,
     const bool normalize,
     const phd::search::SearchEngineType engine_type)
+    : PompeiuHausdorff(
+          VA, FA, VB, FB, tol, max_factor, normalize, engine_type, phd::search::IDAStarConfig{})
+{
+}
+
+PompeiuHausdorff::PompeiuHausdorff(
+    const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>& VA,
+    const Eigen::Matrix<int, Eigen::Dynamic, 3, Eigen::RowMajor>& FA,
+    const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>& VB,
+    const Eigen::Matrix<int, Eigen::Dynamic, 3, Eigen::RowMajor>& FB,
+    const double tol,
+    const double max_factor,
+    const bool normalize,
+    const phd::search::SearchEngineType engine_type,
+    const phd::search::IDAStarConfig& idastar_config)
 {
     if (normalize) {
         const double x_span = VA.col(0).maxCoeff() - VA.col(0).minCoeff();
@@ -93,7 +108,7 @@ PompeiuHausdorff::PompeiuHausdorff(
 
         engine.release_state(VA_aug, C_aug, DV_aug, I_aug, FA_aug, upper_aug, Q);
     } else if (engine_type == phd::search::SearchEngineType::IDAStar) {
-        phd::search::IDAStarEngine engine(search_context);
+        phd::search::IDAStarEngine engine(search_context, idastar_config);
         engine.search();
 
         lower = engine.get_lower_bound();

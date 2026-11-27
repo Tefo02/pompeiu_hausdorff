@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
              << "  tol: tolerance value between upper and lower bounds\n"
              << "  max_factor: maximum allowed factor for faces and vertices expansion\n"
              << "  normalize: 0 (false) or 1 (true) to normalize tolerance by bounding box diagonal\n"
-             << "  engine (optional): 'best_first' (default) or 'idastar'" << endl;
+             << "  engine (optional): 'best_first' (default), 'idastar', 'idastar_nocache', 'idastar_fixed', 'idastar_next_best'" << endl;
         return 0;
     }
 
@@ -70,15 +70,27 @@ int main(int argc, char *argv[])
     double tol = atof(argv[3]);
 
     phd::search::SearchEngineType engine_type = phd::search::SearchEngineType::BestFirst;
+    phd::search::IDAStarConfig idastar_config;
     if (argc == 7) {
         std::string engine_arg = argv[6];
         if (engine_arg == "best_first" || engine_arg == "bestfirst") {
             engine_type = phd::search::SearchEngineType::BestFirst;
         } else if (engine_arg == "idastar" || engine_arg == "ida*") {
             engine_type = phd::search::SearchEngineType::IDAStar;
+            idastar_config.threshold_policy = phd::search::ThresholdPolicy::AdaptiveHistogram;
+        } else if (engine_arg == "idastar_nocache") {
+            engine_type = phd::search::SearchEngineType::IDAStar;
+            idastar_config.threshold_policy = phd::search::ThresholdPolicy::AdaptiveHistogram;
+            idastar_config.max_cache_depth = 0;
+        } else if (engine_arg == "idastar_fixed") {
+            engine_type = phd::search::SearchEngineType::IDAStar;
+            idastar_config.threshold_policy = phd::search::ThresholdPolicy::FixedDecay;
+        } else if (engine_arg == "idastar_next_best") {
+            engine_type = phd::search::SearchEngineType::IDAStar;
+            idastar_config.threshold_policy = phd::search::ThresholdPolicy::NextBest;
         } else {
             std::cerr << "Error: Unknown search engine '" << engine_arg
-                      << "'. Available engines: 'best_first', 'idastar'." << std::endl;
+                      << "'. Available engines: 'best_first', 'idastar', 'idastar_nocache', 'idastar_fixed', 'idastar_next_best'." << std::endl;
             return 0;
         }
     }
@@ -86,7 +98,7 @@ int main(int argc, char *argv[])
     try
     {
       std::cout << "Computing Pompeiu-Hausdorff distance..." << std::endl;
-      PompeiuHausdorff ph(VA, FA, VB, FB, tol, max_factor, normalize, engine_type);
+      PompeiuHausdorff ph(VA, FA, VB, FB, tol, max_factor, normalize, engine_type, idastar_config);
       std::cout << "Done." << std::endl;
 
       // Adding final statistics print for benchmark and profiling
