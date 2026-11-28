@@ -53,3 +53,23 @@ meshes/*.obj
 *.swo
 *~
 .DS_Store
+
+# LaTeX build artifacts (paper/)
+paper/.latexbuild/
+paper/**/*.aux
+paper/**/*.bbl
+paper/**/*.bcf
+paper/**/*.blg
+paper/**/*.fdb_latexmk
+paper/**/*.fls
+paper/**/*.out
+paper/**/*.run.xml
+paper/**/*.synctex.gz
+paper/**/*.synctex(busy)
+paper/**/*.toc
+paper/**/*.lof
+paper/**/*.lot
+paper/**/*.nav
+paper/**/*.snm
+paper/**/*.xdv
+paper/**/*-SAVE-ERROR
