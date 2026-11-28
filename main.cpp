@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
              << "  tol: tolerance value between upper and lower bounds\n"
              << "  max_factor: maximum allowed factor for faces and vertices expansion\n"
              << "  normalize: 0 (false) or 1 (true) to normalize tolerance by bounding box diagonal\n"
-             << "  engine (optional): 'best_first' (default), 'idastar', 'idastar_nocache', 'idastar_fixed', 'idastar_next_best'" << endl;
+             << "  engine (optional): 'best_first' (default), 'idastar', 'idastar_nocache', 'idastar_fixed', 'idastar_next_best', 'idastar_bisection', 'idastar_hybrid'" << endl;
         return 0;
     }
 
@@ -88,9 +88,17 @@ int main(int argc, char *argv[])
         } else if (engine_arg == "idastar_next_best") {
             engine_type = phd::search::SearchEngineType::IDAStar;
             idastar_config.threshold_policy = phd::search::ThresholdPolicy::NextBest;
+        } else if (engine_arg == "idastar_bisection") {
+            engine_type = phd::search::SearchEngineType::IDAStar;
+            idastar_config.threshold_policy = phd::search::ThresholdPolicy::Bisection;
+        } else if (engine_arg == "idastar_hybrid") {
+            engine_type = phd::search::SearchEngineType::IDAStar;
+            idastar_config.threshold_policy = phd::search::ThresholdPolicy::AdaptiveHistogram;
+            idastar_config.enable_warm_start = true;
+            idastar_config.warm_start_max_subdivisions = 2000;
         } else {
             std::cerr << "Error: Unknown search engine '" << engine_arg
-                      << "'. Available engines: 'best_first', 'idastar', 'idastar_nocache', 'idastar_fixed', 'idastar_next_best'." << std::endl;
+                      << "'. Available engines: 'best_first', 'idastar', 'idastar_nocache', 'idastar_fixed', 'idastar_next_best', 'idastar_bisection', 'idastar_hybrid'." << std::endl;
             return 0;
         }
     }

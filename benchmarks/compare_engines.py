@@ -406,6 +406,8 @@ def main() -> None:
         "idastar_nocache",
         "idastar_fixed",
         "idastar_next_best",
+        "idastar_bisection",
+        "idastar_hybrid",
     ]
     parser.add_argument(
         "--baseline-engine",
