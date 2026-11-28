@@ -9,7 +9,9 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <queue>
 #include <unordered_map>
+#include <vector>
 
 namespace phd {
 namespace search {
@@ -96,6 +98,11 @@ double select_next_threshold(
 
     if (config.threshold_policy == ThresholdPolicy::NextBest) {
         return max_safe;
+    }
+
+    if (config.threshold_policy == ThresholdPolicy::Bisection) {
+        const double midpoint = lower + 0.5 * gap;
+        return std::max(min_safe, std::min(max_safe, midpoint));
     }
 
     double decay = config.initial_decay_factor;
@@ -407,10 +414,159 @@ void IDAStarEngine::search()
     DeferredStats prev_deferred_stats;
     DeferredStats current_deferred_stats;
 
+    bool use_warm_frontier = false;
+    std::vector<TriangleNode> warm_frontier;
+    std::vector<int> warm_frontier_depths;
+    int base_vertices = context_.VA.rows();
+    int base_faces = context_.FA.rows();
+
+    if (config_.enable_warm_start &&
+        config_.warm_start_max_subdivisions > 0 &&
+        (upper_max_ - lower_ > tol_scaled)) {
+        struct WarmEntry {
+            TriangleNode node;
+            int depth;
+        };
+        struct WarmCompare {
+            bool operator()(const WarmEntry& a, const WarmEntry& b) const {
+                return a.node.upper_bound < b.node.upper_bound;
+            }
+        };
+
+        std::priority_queue<WarmEntry, std::vector<WarmEntry>, WarmCompare> pq;
+        for (int f = 0; f < context_.FA.rows(); ++f) {
+            if (context_.initial_upper(f) >= lower_) {
+                pq.push(WarmEntry{construct_root_node(f), 0});
+            }
+        }
+
+        int warm_steps = 0;
+        while (!pq.empty() && warm_steps < config_.warm_start_max_subdivisions) {
+            const WarmEntry top = pq.top();
+            if (top.node.upper_bound < lower_) {
+                pq.pop();
+                continue;
+            }
+
+            upper_max_ = top.node.upper_bound;
+            if (upper_max_ - lower_ <= tol_scaled) {
+                break;
+            }
+
+            pq.pop();
+            if (top.depth >= max_depth) {
+                throw std::runtime_error("Exceeded maximum recursion depth before satisfying tolerance");
+            }
+            if (number_of_vertices_ + 3 > max_allowed_vertices ||
+                number_of_faces_ + 4 > max_allowed_faces) {
+                throw std::runtime_error("Exceeded maximum number of faces or vertices");
+            }
+
+            const auto subdivision_result = phd::geometry::subdivide_triangle_1_to_4(
+                top.node.V.row(0), top.node.V.row(1), top.node.V.row(2));
+            subdivided_faces++;
+            number_of_vertices_ += 3;
+            number_of_faces_ += 4;
+            warm_steps++;
+
+            Eigen::Vector3d DV_mid;
+            Eigen::Vector3i I_mid;
+            Eigen::Matrix<double, 3, 3, Eigen::RowMajor> C_mid;
+            context_.treeB.squared_distance(
+                context_.VB,
+                context_.FB,
+                subdivision_result.midpoints,
+                DV_mid,
+                I_mid,
+                C_mid);
+            DV_mid = DV_mid.cwiseSqrt();
+
+            lower_ = std::max(lower_, DV_mid.maxCoeff());
+
+            Eigen::Matrix<double, 6, 3, Eigen::RowMajor> VA_eval;
+            Eigen::Matrix<double, 6, 3, Eigen::RowMajor> C_eval;
+            Eigen::Matrix<double, 6, 1> DV_eval;
+            Eigen::Matrix<int, 6, 1> I_eval;
+
+            VA_eval.row(0) = top.node.V.row(0);
+            VA_eval.row(1) = top.node.V.row(1);
+            VA_eval.row(2) = top.node.V.row(2);
+            VA_eval.block<3, 3>(3, 0) = subdivision_result.midpoints;
+
+            C_eval.row(0) = top.node.C.row(0);
+            C_eval.row(1) = top.node.C.row(1);
+            C_eval.row(2) = top.node.C.row(2);
+            C_eval.block<3, 3>(3, 0) = C_mid;
+
+            DV_eval(0) = top.node.DV(0);
+            DV_eval(1) = top.node.DV(1);
+            DV_eval(2) = top.node.DV(2);
+            DV_eval.segment<3>(3) = DV_mid;
+
+            I_eval(0) = top.node.I(0);
+            I_eval(1) = top.node.I(1);
+            I_eval(2) = top.node.I(2);
+            I_eval.segment<3>(3) = I_mid;
+
+            Eigen::Vector4d upper_children;
+            Eigen::Vector4i success_children;
+            if (!phd::geometry::evaluate_cascading_bounds(
+                    VA_eval,
+                    subdivision_result.local_faces,
+                    context_.VB,
+                    context_.FB,
+                    DV_eval,
+                    I_eval,
+                    C_eval,
+                    lower_,
+                    upper_children,
+                    success_children,
+                    &kang_workspace,
+                    &search_bound_stats)) {
+                throw std::runtime_error("error in upper bound function during hybrid warm-start");
+            }
+
+            for (int c = 0; c < 4; ++c) {
+                if (upper_children(c) >= lower_) {
+                    TriangleNode child_node;
+                    for (int k = 0; k < 3; ++k) {
+                        const int idx = subdivision_result.local_faces(c, k);
+                        child_node.V.row(k) = VA_eval.row(idx);
+                        child_node.DV(k) = DV_eval(idx);
+                        child_node.I(k) = I_eval(idx);
+                        child_node.C.row(k) = C_eval.row(idx);
+                    }
+                    child_node.upper_bound = upper_children(c);
+                    pq.push(WarmEntry{std::move(child_node), top.depth + 1});
+                }
+            }
+        }
+
+        double warm_max = lower_;
+        warm_frontier.reserve(pq.size());
+        warm_frontier_depths.reserve(pq.size());
+        while (!pq.empty()) {
+            WarmEntry entry = pq.top();
+            pq.pop();
+            if (entry.node.upper_bound >= lower_) {
+                if (entry.node.upper_bound > warm_max) {
+                    warm_max = entry.node.upper_bound;
+                }
+                warm_frontier.push_back(std::move(entry.node));
+                warm_frontier_depths.push_back(entry.depth);
+            }
+        }
+
+        upper_max_ = warm_max;
+        base_vertices = number_of_vertices_;
+        base_faces = number_of_faces_;
+        use_warm_frontier = true;
+    }
+
     while (upper_max_ - lower_ > tol_scaled) {
         iterations_++;
-        number_of_vertices_ = context_.VA.rows();
-        number_of_faces_ = context_.FA.rows();
+        number_of_vertices_ = base_vertices;
+        number_of_faces_ = base_faces;
 
         const double current_threshold = select_next_threshold(
             lower_, upper_max_, tol_scaled, prev_deferred_stats, config_);
@@ -418,8 +574,14 @@ void IDAStarEngine::search()
         double next_threshold = -std::numeric_limits<double>::infinity();
         current_deferred_stats.reset(lower_, current_threshold);
 
-        for (int f = 0; f < context_.FA.rows(); ++f) {
-            const double root_upper = context_.initial_upper(f);
+        const int root_count = use_warm_frontier
+            ? static_cast<int>(warm_frontier.size())
+            : context_.FA.rows();
+
+        for (int f = 0; f < root_count; ++f) {
+            const double root_upper = use_warm_frontier
+                ? warm_frontier[f].upper_bound
+                : context_.initial_upper(f);
             if (root_upper < lower_) {
                 continue;
             }
@@ -431,16 +593,28 @@ void IDAStarEngine::search()
                 continue;
             }
 
-            TriangleNode root_node = construct_root_node(f);
-            dfs_branch(
-                ctx,
-                root_node,
-                f,
-                0,
-                1ULL,
-                current_threshold,
-                next_threshold,
-                current_deferred_stats);
+            if (use_warm_frontier) {
+                dfs_branch(
+                    ctx,
+                    warm_frontier[f],
+                    f,
+                    warm_frontier_depths[f],
+                    1ULL,
+                    current_threshold,
+                    next_threshold,
+                    current_deferred_stats);
+            } else {
+                TriangleNode root_node = construct_root_node(f);
+                dfs_branch(
+                    ctx,
+                    root_node,
+                    f,
+                    0,
+                    1ULL,
+                    current_threshold,
+                    next_threshold,
+                    current_deferred_stats);
+            }
         }
 
         // If no unexpanded branch exceeded lower_ + tol_scaled, search has converged

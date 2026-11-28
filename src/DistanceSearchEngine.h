@@ -25,7 +25,8 @@ enum class SearchEngineType {
 enum class ThresholdPolicy {
     NextBest,
     FixedDecay,
-    AdaptiveHistogram
+    AdaptiveHistogram,
+    Bisection
 };
 
 /**
@@ -38,6 +39,8 @@ struct IDAStarConfig {
     double max_decay_factor = 0.50;
     int max_cache_depth = 4;
     std::size_t max_cache_entries = 65536;
+    bool enable_warm_start = false;
+    int warm_start_max_subdivisions = 2000;
 };
 
 /**
