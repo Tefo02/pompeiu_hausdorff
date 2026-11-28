@@ -1,0 +1,4 @@
+id,category,tol,memory_limit_mb,engine,status,parity,peak_rss_mb,wall_time_ms,subdivided_faces,lower,upper_max
+existing_lucy_decimate05,stress_memory,1e-4,10240.0,best_first,OOM,OOM,5303.86,149724.23,0,,
+existing_lucy_decimate05,stress_memory,1e-4,10240.0,idastar_fixed,OK,OK (No Base),4982.99,165425.00,130151,0.455015556933,0.647359478211
+existing_lucy_decimate05,stress_memory,1e-4,10240.0,idastar_bisection,OK,OK (No Base),4983.05,159777.45,96778,0.455015556933,0.647359478211

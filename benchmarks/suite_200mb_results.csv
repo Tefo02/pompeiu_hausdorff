@@ -1,0 +1,121 @@
+id,category,tol,memory_limit_mb,engine,status,parity,peak_rss_mb,wall_time_ms,subdivided_faces,lower,upper_max
+107100_decimate_50,decimation,1e-4,200.0,best_first,OK,OK,6.96,63.63,902,1.444865335092,1.451459372806
+107100_decimate_50,decimation,1e-4,200.0,idastar_fixed,OK,CONVERGED,6.96,63.31,4842,1.444865335092,1.45311089377
+107100_decimate_50,decimation,1e-4,200.0,idastar_bisection,OK,CONVERGED,7.19,73.11,2782,1.444865335092,1.45311089377
+existing_848343_decimate,high_density_decimation,1e-4,200.0,best_first,OOM,OOM,62.43,1615.21,0,,
+existing_848343_decimate,high_density_decimation,1e-4,200.0,idastar_fixed,OK,OK (No Base),64.25,17876.36,3720161,0.024038464361,0.043000075813
+existing_848343_decimate,high_density_decimation,1e-4,200.0,idastar_bisection,OK,OK (No Base),64.25,14751.45,2998648,0.024038464361,0.043000075813
+107100_noise_005,perturbation_noise,1e-4,200.0,best_first,OK,OK,14.29,104.04,2260,0.99130687676,0.99600055679
+107100_noise_005,perturbation_noise,1e-4,200.0,idastar_fixed,OK,CONVERGED,8.03,103.82,20578,0.99130687676,0.998741526897
+107100_noise_005,perturbation_noise,1e-4,200.0,idastar_bisection,OK,CONVERGED,7.92,93.16,8901,0.99130687676,0.998741526897
+107100_quant_010,quantization,1e-4,200.0,best_first,OK,OK,13.86,93.51,3384,0.627969301438,0.63605319653
+107100_quant_010,quantization,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,7.74,93.45,43069,0.627969301438,0.63605319653
+107100_quant_010,quantization,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,7.61,83.18,23021,0.627969301438,0.63605319653
+existing_107100_sf,remeshing,1e-4,200.0,best_first,OOM,OOM,114.21,2032.80,0,,
+existing_107100_sf,remeshing,1e-4,200.0,idastar_fixed,OK,OK (No Base),29.26,8345.86,2778685,0.073072619899,0.08140652724
+existing_107100_sf,remeshing,1e-4,200.0,idastar_bisection,OK,OK (No Base),29.25,5608.57,1760424,0.073072619899,0.08140652724
+synthetic_cube_translation,sanity_analytical,1e-5,200.0,best_first,OK,OK,6.17,22.39,5175,0.05,0.050016951337
+synthetic_cube_translation,sanity_analytical,1e-5,200.0,idastar_fixed,OK,EXACT MATCH,4.79,43.29,17819,0.05,0.050016951337
+synthetic_cube_translation,sanity_analytical,1e-5,200.0,idastar_bisection,OK,EXACT MATCH,4.80,32.57,13878,0.05,0.050016951337
+107100_smooth_taubin,smoothing,1e-4,200.0,best_first,OK,OK,14.31,72.96,3575,2.137445824369,2.140799621429
+107100_smooth_taubin,smoothing,1e-4,200.0,idastar_fixed,OK,CONVERGED,8.35,82.96,18090,2.137439300728,2.145122668366
+107100_smooth_taubin,smoothing,1e-4,200.0,idastar_bisection,OK,CONVERGED,8.36,83.30,9206,2.137439300728,2.145122668366
+107100_soup_jitter,triangle_soup,1e-4,200.0,best_first,OK,OK,14.48,113.31,4469,0.536202162439,0.544499104265
+107100_soup_jitter,triangle_soup,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,8.63,123.76,52254,0.536202162439,0.544499104265
+107100_soup_jitter,triangle_soup,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,8.70,123.88,26486,0.536202162439,0.544499104265
+107100_decimate_20,decimation,1e-4,200.0,best_first,OK,OK,6.62,52.81,93,3.26360345879,3.264722073755
+107100_decimate_20,decimation,1e-4,200.0,idastar_fixed,OK,CONVERGED,6.63,53.43,368,3.26360345879,3.26612925386
+107100_decimate_20,decimation,1e-4,200.0,idastar_bisection,OK,CONVERGED,6.57,52.96,228,3.26360345879,3.26612925386
+107100_noise_020,perturbation_noise,1e-4,200.0,best_first,OK,OK,14.32,123.84,2379,1.585304043096,1.592382043317
+107100_noise_020,perturbation_noise,1e-4,200.0,idastar_fixed,OK,CONVERGED,8.02,113.73,24381,1.585304043096,1.592873489749
+107100_noise_020,perturbation_noise,1e-4,200.0,idastar_bisection,OK,CONVERGED,8.03,113.43,14235,1.585304043096,1.592873489749
+848343_quant_010,quantization,1e-4,200.0,best_first,OOM,OOM,60.69,913.01,0,,
+848343_quant_010,quantization,1e-4,200.0,idastar_fixed,OK,OK (No Base),60.70,933.32,1895,0.93782843,0.956749989209
+848343_quant_010,quantization,1e-4,200.0,idastar_bisection,OK,OK (No Base),60.70,913.59,1563,0.93782843,0.956749989209
+synthetic_icosphere_refinement,sanity_analytical,1e-4,200.0,best_first,OK,OK,1.67,12.73,0,0.187592474103,0.187592474103
+synthetic_icosphere_refinement,sanity_analytical,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,1.75,12.95,0,0.187592474103,0.187592474103
+synthetic_icosphere_refinement,sanity_analytical,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,1.65,12.62,0,0.187592474103,0.187592474103
+848343_smooth_taubin,smoothing,1e-4,200.0,best_first,OOM,OOM,88.85,1631.82,0,,
+848343_smooth_taubin,smoothing,1e-4,200.0,idastar_fixed,OK,OK (No Base),88.18,5752.26,1179935,0.207887322029,0.226848928261
+848343_smooth_taubin,smoothing,1e-4,200.0,idastar_bisection,OK,OK (No Base),88.19,3595.59,598600,0.207887322029,0.226848928261
+848343_soup_jitter,triangle_soup,1e-4,200.0,best_first,OOM,OOM,112.84,2463.04,0,,
+848343_soup_jitter,triangle_soup,1e-4,200.0,idastar_fixed,OK,OK (No Base),104.07,2392.86,8837,0.730595570901,0.749392713656
+848343_soup_jitter,triangle_soup,1e-4,200.0,idastar_bisection,OK,OK (No Base),104.05,2258.42,6769,0.730595570901,0.749392713656
+848343_decimate_50,decimation,1e-4,200.0,best_first,OOM,OOM,62.85,1379.18,0,,
+848343_decimate_50,decimation,1e-4,200.0,idastar_fixed,OK,OK (No Base),64.25,14047.57,2945796,0.024038537369,0.042999920684
+848343_decimate_50,decimation,1e-4,200.0,idastar_bisection,OK,OK (No Base),64.20,11816.76,2218022,0.024038537369,0.042999920684
+848343_noise_005,perturbation_noise,1e-4,200.0,best_first,OOM,OOM,84.78,1604.29,0,,
+848343_noise_005,perturbation_noise,1e-4,200.0,idastar_fixed,OK,OK (No Base),76.60,1949.03,40,1.059087384539,1.075777328123
+848343_noise_005,perturbation_noise,1e-4,200.0,idastar_bisection,OK,OK (No Base),76.60,1859.42,49,1.059087384539,1.076552056415
+alligator_quant_010,quantization,1e-4,200.0,best_first,OK,OK,5.26,32.94,9,4.9158187,4.976913722592
+alligator_quant_010,quantization,1e-4,200.0,idastar_fixed,OK,CONVERGED,5.25,32.78,12,4.9158187,4.969939727104
+alligator_quant_010,quantization,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,5.26,32.82,9,4.9158187,4.976913722592
+alligator_smooth_taubin,smoothing,1e-4,200.0,best_first,OK,OK,6.51,52.80,323,3.900615549991,4.001859316201
+alligator_smooth_taubin,smoothing,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,6.54,53.18,980,3.900615549991,4.001859316201
+alligator_smooth_taubin,smoothing,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,6.54,52.96,942,3.900615549991,4.001859316201
+alligator_soup_jitter,triangle_soup,1e-4,200.0,best_first,OK,OK,6.96,73.38,461,4.387758850566,4.478855685448
+alligator_soup_jitter,triangle_soup,1e-4,200.0,idastar_fixed,OK,CONVERGED,6.97,73.14,1484,4.387758850566,4.487521544789
+alligator_soup_jitter,triangle_soup,1e-4,200.0,idastar_bisection,OK,CONVERGED,6.97,73.45,986,4.387758850566,4.487521544789
+848343_decimate_20,decimation,1e-4,200.0,best_first,OOM,OOM,60.70,1402.87,0,,
+848343_decimate_20,decimation,1e-4,200.0,idastar_fixed,OK,OK (No Base),60.92,4039.15,892095,0.097088915579,0.11604845367
+848343_decimate_20,decimation,1e-4,200.0,idastar_bisection,OK,OK (No Base),60.70,3269.30,577587,0.097088915579,0.11604845367
+848343_noise_020,perturbation_noise,1e-4,200.0,best_first,OOM,OOM,84.73,2785.77,0,,
+848343_noise_020,perturbation_noise,1e-4,200.0,idastar_fixed,OK,OK (No Base),76.62,4617.37,29641,0.501508686965,0.52046274457
+848343_noise_020,perturbation_noise,1e-4,200.0,idastar_bisection,OK,OK (No Base),76.61,4634.85,16578,0.501508686965,0.52046274457
+armadillo_quant_010,quantization,1e-4,200.0,best_first,OK,OK,29.25,1001.31,205,1.285499218498,1.308239818493
+armadillo_quant_010,quantization,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,19.65,337.06,715,1.285499218498,1.308239818493
+armadillo_quant_010,quantization,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,19.68,358.08,398,1.285499218498,1.308239818493
+armadillo_smooth_taubin,smoothing,1e-4,200.0,best_first,OK,OK,68.12,1397.63,67756,0.303012776464,0.325886079695
+armadillo_smooth_taubin,smoothing,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,49.66,1374.43,437067,0.303012776464,0.325886079695
+armadillo_smooth_taubin,smoothing,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,49.71,1383.33,239248,0.303012776464,0.325886079695
+armadillo_soup_jitter,triangle_soup,1e-4,200.0,best_first,OK,OK,58.75,2232.70,1500,1.033658243577,1.056492880062
+armadillo_soup_jitter,triangle_soup,1e-4,200.0,idastar_fixed,OK,CONVERGED,45.91,925.25,5890,1.033658243577,1.056437877691
+armadillo_soup_jitter,triangle_soup,1e-4,200.0,idastar_bisection,OK,CONVERGED,45.87,944.00,1881,1.033658243577,1.056437877691
+alligator_decimate_50,decimation,1e-4,200.0,best_first,OK,OK,24.13,275.98,65081,1.3e-05,0.101545004101
+alligator_decimate_50,decimation,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,18.57,285.67,214503,1.3e-05,0.101545004101
+alligator_decimate_50,decimation,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,18.51,297.03,158896,1.3e-05,0.101545004101
+alligator_noise_005,perturbation_noise,1e-4,200.0,best_first,OK,OK,6.54,125.40,11,6.686092441166,6.784550246974
+alligator_noise_005,perturbation_noise,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,5.81,54.62,27,6.686092441166,6.784550246974
+alligator_noise_005,perturbation_noise,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,6.30,42.79,32,6.686092441166,6.784550246974
+beast_quant_010,quantization,1e-4,200.0,best_first,ERROR,ERROR,12.17,433.46,0,,
+beast_quant_010,quantization,1e-4,200.0,idastar_fixed,ERROR,ERROR,12.06,124.08,0,,
+beast_quant_010,quantization,1e-4,200.0,idastar_bisection,ERROR,ERROR,12.06,123.54,0,,
+beast_smooth_taubin,smoothing,1e-4,200.0,best_first,ERROR,ERROR,12.15,123.79,0,,
+beast_smooth_taubin,smoothing,1e-4,200.0,idastar_fixed,ERROR,ERROR,12.25,133.98,0,,
+beast_smooth_taubin,smoothing,1e-4,200.0,idastar_bisection,ERROR,ERROR,12.92,133.98,0,,
+beast_soup_jitter,triangle_soup,1e-4,200.0,best_first,ERROR,ERROR,12.10,123.57,0,,
+beast_soup_jitter,triangle_soup,1e-4,200.0,idastar_fixed,ERROR,ERROR,12.04,134.87,0,,
+beast_soup_jitter,triangle_soup,1e-4,200.0,idastar_bisection,ERROR,ERROR,12.11,123.70,0,,
+alligator_decimate_20,decimation,1e-4,200.0,best_first,OK,OK,11.16,113.93,18783,1.3e-05,0.101508818415
+alligator_decimate_20,decimation,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,9.42,113.65,80198,1.3e-05,0.101508818415
+alligator_decimate_20,decimation,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,9.36,103.20,54679,1.3e-05,0.101508818415
+alligator_noise_020,perturbation_noise,1e-4,200.0,best_first,OK,OK,6.29,114.63,2,7.695060439951,7.697145070666
+alligator_noise_020,perturbation_noise,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,6.29,73.15,3,7.695060439951,7.697145070666
+alligator_noise_020,perturbation_noise,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,6.27,73.11,2,7.695060439951,7.697145070666
+beetle-alt_quant_010,quantization,1e-4,200.0,best_first,OK,OK,21.79,339.92,2060,0.006175528646,0.006288493877
+beetle-alt_quant_010,quantization,1e-4,200.0,idastar_fixed,OK,CONVERGED,10.31,153.95,9806,0.006175528646,0.006284494183
+beetle-alt_quant_010,quantization,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,10.47,154.22,5195,0.006175528646,0.006288493877
+beetle-alt_smooth_taubin,smoothing,1e-4,200.0,best_first,OK,OK,29.87,318.03,2688,0.00521647108,0.005327351731
+beetle-alt_smooth_taubin,smoothing,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,16.39,245.17,17500,0.00521647108,0.005327351731
+beetle-alt_smooth_taubin,smoothing,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,16.43,235.58,10651,0.00521647108,0.005327351731
+beetle-alt_soup_jitter,triangle_soup,1e-4,200.0,best_first,OK,OK,35.54,789.43,2035,0.006276521044,0.006336519798
+beetle-alt_soup_jitter,triangle_soup,1e-4,200.0,idastar_fixed,OK,CONVERGED,20.66,377.06,11820,0.006276521044,0.006388738461
+beetle-alt_soup_jitter,triangle_soup,1e-4,200.0,idastar_bisection,OK,CONVERGED,20.64,356.69,7153,0.006276521044,0.006388738461
+armadillo_decimate_50,decimation,1e-4,200.0,best_first,OK,OK,81.65,1782.42,147218,0.101414571195,0.1242935457
+armadillo_decimate_50,decimation,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,39.76,2589.43,779863,0.101414571195,0.1242935457
+armadillo_decimate_50,decimation,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,39.76,2416.31,446697,0.101414571195,0.1242935457
+armadillo_noise_005,perturbation_noise,1e-4,200.0,best_first,OK,OK,53.01,1100.15,63,1.50976376763,1.519947198379
+armadillo_noise_005,perturbation_noise,1e-4,200.0,idastar_fixed,OK,CONVERGED,34.64,601.87,127,1.50976376763,1.53218815057
+armadillo_noise_005,perturbation_noise,1e-4,200.0,idastar_bisection,OK,CONVERGED,34.64,611.89,100,1.50976376763,1.53218815057
+beetle_quant_010,quantization,1e-4,200.0,best_first,OK,OK,5.52,53.72,1304,0.006836522742,0.006937021801
+beetle_quant_010,quantization,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,5.48,32.46,15203,0.006836522742,0.006937021801
+beetle_quant_010,quantization,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,5.46,32.37,8133,0.006836522742,0.006937021801
+beetle_smooth_taubin,smoothing,1e-4,200.0,best_first,OK,OK,5.06,32.74,331,0.022222851386,0.022268768318
+beetle_smooth_taubin,smoothing,1e-4,200.0,idastar_fixed,OK,CONVERGED,4.91,22.60,1876,0.022222851386,0.022284019079
+beetle_smooth_taubin,smoothing,1e-4,200.0,idastar_bisection,OK,CONVERGED,4.91,22.32,1002,0.022222851386,0.022284019079
+beetle_soup_jitter,triangle_soup,1e-4,200.0,best_first,OK,OK,5.66,63.29,1559,0.006278362614,0.006376789778
+beetle_soup_jitter,triangle_soup,1e-4,200.0,idastar_fixed,OK,EXACT MATCH,5.79,42.65,17743,0.006278362614,0.006376789778
+beetle_soup_jitter,triangle_soup,1e-4,200.0,idastar_bisection,OK,EXACT MATCH,5.71,42.90,8984,0.006278362614,0.006376789778
+armadillo_decimate_20,decimation,1e-4,200.0,best_first,OK,OK,48.45,703.86,29063,0.259260816374,0.273290693272
+armadillo_decimate_20,decimation,1e-4,200.0,idastar_fixed,OK,CONVERGED,23.75,590.72,134081,0.25660587967,0.279483299782
+armadillo_decimate_20,decimation,1e-4,200.0,idastar_bisection,OK,CONVERGED,23.82,579.94,91638,0.25660587967,0.279483299782
