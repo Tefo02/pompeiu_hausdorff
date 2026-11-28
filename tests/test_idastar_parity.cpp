@@ -220,10 +220,18 @@ void test_icosphere_refinement()
     for (auto policy : {
              phd::search::ThresholdPolicy::NextBest,
              phd::search::ThresholdPolicy::FixedDecay,
-             phd::search::ThresholdPolicy::AdaptiveHistogram}) {
+             phd::search::ThresholdPolicy::AdaptiveHistogram,
+             phd::search::ThresholdPolicy::Bisection}) {
         phd::search::IDAStarConfig cfg;
         cfg.threshold_policy = policy;
         assert_engine_parity("icosphere", V_fine, F_fine, V_coarse, F_coarse, 1e-4, true, cfg);
+    }
+    {
+        phd::search::IDAStarConfig cfg_hybrid;
+        cfg_hybrid.threshold_policy = phd::search::ThresholdPolicy::AdaptiveHistogram;
+        cfg_hybrid.enable_warm_start = true;
+        cfg_hybrid.warm_start_max_subdivisions = 64;
+        assert_engine_parity("icosphere_hybrid", V_fine, F_fine, V_coarse, F_coarse, 1e-4, true, cfg_hybrid);
     }
     std::cout << "[PASS] test_icosphere_refinement\n";
 }
@@ -256,6 +264,16 @@ void test_official_107100_parity_and_cache()
         phd::search::IDAStarConfig cfg_fixed;
         cfg_fixed.threshold_policy = phd::search::ThresholdPolicy::FixedDecay;
         assert_engine_parity("107100_fixed", VA, FA, VB, FB, tol, true, cfg_fixed);
+
+        phd::search::IDAStarConfig cfg_bisection;
+        cfg_bisection.threshold_policy = phd::search::ThresholdPolicy::Bisection;
+        assert_engine_parity("107100_bisection", VA, FA, VB, FB, tol, true, cfg_bisection);
+
+        phd::search::IDAStarConfig cfg_hybrid;
+        cfg_hybrid.threshold_policy = phd::search::ThresholdPolicy::AdaptiveHistogram;
+        cfg_hybrid.enable_warm_start = true;
+        cfg_hybrid.warm_start_max_subdivisions = 2000;
+        assert_engine_parity("107100_hybrid", VA, FA, VB, FB, tol, true, cfg_hybrid);
     }
 
     // Verify NextBest policy on 107100 at tol=1e-2
