@@ -39,7 +39,6 @@ htmlcov/
 
 # Benchmark and profiling outputs
 results*.csv
-benchmarks/*.csv
 *.prof
 *.log
 meshes/generated/
