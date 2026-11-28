@@ -2,10 +2,10 @@
 """
 run_suite.py - Automated Batch Benchmark Runner for Pompeiu-Hausdorff Test Suites
 
-Reads a JSON manifest (default: benchmarks/test_suite.json), executes baseline
-and candidate search engines in isolated subprocesses with a per-run timeout,
-tracks Peak RSS, wall/CPU time, subdivided faces, bound calls, and numerical
-parity, and exports consolidated CSV and Markdown summary reports.
+Reads a JSON manifest (default: benchmarks/test_suite.json), executes one or more
+search engines in isolated subprocesses with optional RAM limits (RLIMIT_AS) and
+per-run timeouts, tracks Peak RSS, wall time, subdivided faces, and numerical
+parity against the first (baseline) engine, and exports CSV and Markdown reports.
 """
 
 import argparse
@@ -14,6 +14,8 @@ import datetime
 import fnmatch
 import json
 import os
+import resource
+import subprocess
 import sys
 import time
 from typing import Any, Dict, List, Optional
@@ -23,12 +25,7 @@ PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-from compare_engines import (  # noqa: E402
-    calculate_percentage_change,
-    compute_comparison_metrics,
-)
-from profile_runner import parse_binary_stdout, ProcStatusSampler  # noqa: E402
-import subprocess  # noqa: E402
+from profile_runner import ProcStatusSampler, parse_binary_stdout  # noqa: E402
 
 
 ENGINE_CHOICES = [
@@ -42,6 +39,17 @@ ENGINE_CHOICES = [
 ]
 
 
+def _make_rlimit_preexec(memory_limit_mb: float):
+    if memory_limit_mb <= 0.0:
+        return None
+    limit_bytes = int(memory_limit_mb * 1024 * 1024)
+
+    def _apply_limit() -> None:
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+
+    return _apply_limit
+
+
 def run_timed_profile(
     executable: str,
     mesh_a: str,
@@ -51,11 +59,12 @@ def run_timed_profile(
     normalize: str,
     engine: str,
     timeout_sec: float,
+    memory_limit_mb: float = 0.0,
     sample_interval_sec: float = 0.010,
 ) -> Dict[str, Any]:
     """
-    Runs a single engine invocation in an isolated subprocess with Peak RSS sampling
-    and an explicit wall-clock timeout.
+    Runs a single engine invocation in an isolated subprocess with Peak RSS sampling,
+    optional RLIMIT_AS memory cap, and explicit wall-clock timeout.
     """
     cmd = [executable, mesh_a, mesh_b, tol, max_factor, normalize, engine]
     start_wall = time.perf_counter()
@@ -64,6 +73,7 @@ def run_timed_profile(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        preexec_fn=_make_rlimit_preexec(memory_limit_mb),
     )
 
     sampler = ProcStatusSampler(proc.pid, sample_interval_sec=sample_interval_sec)
@@ -91,19 +101,26 @@ def run_timed_profile(
             "engine": engine,
             "peak_rss_mb": peak_rss_mb,
             "wall_time_ms": wall_time_ms,
-            "cpu_time_ms": wall_time_ms,
             "error": f"Exceeded {timeout_sec}s timeout",
         }
 
-    # Note: main.cpp returns 1 on success, 0 on error
+    combined_err = f"{stderr_text}\n{stdout_text}"
     if proc.returncode != 1:
+        is_oom = (
+            memory_limit_mb > 0.0
+            and (
+                "bad_alloc" in combined_err
+                or "Cannot allocate memory" in combined_err
+                or proc.returncode < 0
+                or peak_rss_mb >= memory_limit_mb * 0.70
+            )
+        )
         return {
-            "status": "ERROR",
+            "status": "OOM" if is_oom else "ERROR",
             "engine": engine,
             "peak_rss_mb": peak_rss_mb,
             "wall_time_ms": wall_time_ms,
-            "cpu_time_ms": wall_time_ms,
-            "error": (stderr_text or stdout_text).strip()[:200],
+            "error": combined_err.strip()[:200],
         }
 
     parsed = parse_binary_stdout(stdout_text)
@@ -113,7 +130,6 @@ def run_timed_profile(
             "engine": engine,
             "peak_rss_mb": peak_rss_mb,
             "wall_time_ms": wall_time_ms,
-            "cpu_time_ms": wall_time_ms,
             "error": "Failed to parse lower/upper_max from stdout",
         }
 
@@ -122,7 +138,6 @@ def run_timed_profile(
         "engine": engine,
         "peak_rss_mb": peak_rss_mb,
         "wall_time_ms": wall_time_ms,
-        "cpu_time_ms": wall_time_ms,
         "dA": parsed.get("dA", float("nan")),
         "lower": parsed.get("lower", float("nan")),
         "upper_max": parsed.get("upper_max", float("nan")),
@@ -137,9 +152,43 @@ def run_timed_profile(
     }
 
 
+def check_parity(
+    base_res: Dict[str, Any],
+    cand_res: Dict[str, Any],
+    tol: str,
+    normalize: str,
+) -> str:
+    """
+    Validates numerical convergence parity between baseline and candidate intervals.
+    """
+    if cand_res["status"] != "OK":
+        return cand_res["status"]
+    if base_res["status"] != "OK":
+        return "OK (No Base)"
+
+    tol_float = float(tol)
+    dA = cand_res.get("dA", 1.0)
+    tol_scaled = tol_float * dA if int(normalize) else tol_float
+
+    lower_diff = abs(base_res["lower"] - cand_res["lower"])
+    upper_diff = abs(base_res["upper_max"] - cand_res["upper_max"])
+    if lower_diff < 1e-8 and upper_diff < 1e-8:
+        return "EXACT MATCH"
+
+    cand_gap = cand_res["upper_max"] - cand_res["lower"]
+    intervals_overlap = not (
+        base_res["upper_max"] < cand_res["lower"]
+        or cand_res["upper_max"] < base_res["lower"]
+    )
+    if cand_gap <= tol_scaled * 1.0001 and intervals_overlap:
+        return "CONVERGED"
+    return "DIVERGENCE"
+
+
 def select_pairs(
     pairs: List[Dict[str, Any]],
     filter_pattern: Optional[str],
+    exclude_filter: Optional[str],
     categories: Optional[List[str]],
     max_pairs: int,
     stratified: bool,
@@ -153,13 +202,17 @@ def select_pairs(
             p for p in selected
             if fnmatch.fnmatch(p["id"].lower(), filter_pattern.lower())
         ]
+    if exclude_filter:
+        selected = [
+            p for p in selected
+            if not fnmatch.fnmatch(p["id"].lower(), exclude_filter.lower())
+        ]
     if categories:
         cat_set = {c.lower() for c in categories}
         selected = [p for p in selected if p.get("category", "").lower() in cat_set]
 
     if max_pairs > 0 and len(selected) > max_pairs:
         if stratified:
-            # Round-robin across categories to preserve diversity
             by_cat: Dict[str, List[Dict[str, Any]]] = {}
             for p in selected:
                 by_cat.setdefault(p.get("category", "other"), []).append(p)
@@ -184,54 +237,62 @@ def select_pairs(
 
 def write_markdown_summary(
     md_path: str,
-    rows: List[Dict[str, Any]],
-    baseline_engine: str,
-    candidate_engine: str,
-    tol_override: Optional[str],
+    pair_records: List[Dict[str, Any]],
+    engines: List[str],
+    memory_limit_mb: float,
+    timeout_sec: float,
 ) -> None:
     """
-    Writes a consolidated Markdown table summarizing all benchmarked pairs.
+    Writes a consolidated Markdown table summarizing all engines side by side.
     """
     os.makedirs(os.path.dirname(os.path.abspath(md_path)), exist_ok=True)
-    ok_rows = [r for r in rows if r["status"] == "OK"]
-    avg_mem_pct = (
-        sum(r["mem_delta_pct"] for r in ok_rows) / len(ok_rows)
-        if ok_rows else 0.0
-    )
-    avg_wall_pct = (
-        sum(r["wall_delta_pct"] for r in ok_rows) / len(ok_rows)
-        if ok_rows else 0.0
-    )
-    parity_ok = sum(
-        1 for r in ok_rows
-        if r["parity"] in ("EXACT MATCH", "CONVERGED (Within Tolerance)")
-    )
+    mem_str = f"{memory_limit_mb:.0f} MB" if memory_limit_mb > 0 else "Unlimited"
 
     lines = [
-        f"# Mass Benchmark Report: `{baseline_engine}` vs `{candidate_engine}`",
+        f"# Mass Benchmark Report: {' vs '.join(f'`{e}`' for e in engines)}",
         "",
         f"- **Date:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- **Pairs evaluated:** {len(rows)} (`OK`: {len(ok_rows)}, `Non-OK`: {len(rows) - len(ok_rows)})",
-        f"- **Parity passed:** {parity_ok}/{len(ok_rows)}",
-        f"- **Tolerance override:** {tol_override or 'per-manifest'}",
-        f"- **Mean Peak RSS Delta:** {avg_mem_pct:+.2f}%",
-        f"- **Mean Wall-Time Delta:** {avg_wall_pct:+.2f}%",
+        f"- **Pairs evaluated:** {len(pair_records)}",
+        f"- **Memory Limit (RLIMIT_AS):** {mem_str}",
+        f"- **Per-run Timeout:** {timeout_sec:.0f}s",
         "",
-        "| Pair ID | Category | Base RSS (MB) | Cand RSS (MB) | RSS Delta | Base Time (ms) | Cand Time (ms) | Time Delta | Parity |",
-        "| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- |",
+        "## Aggregate Summary per Engine",
+        "",
+        "| Engine | OK | OOM | Timeout | Error | Mean RSS (MB) | Mean Time (ms) |",
+        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
-    for r in rows:
-        if r["status"] == "OK":
-            lines.append(
-                f"| `{r['id']}` | {r['category']} | {r['base_rss_mb']:.2f} | {r['cand_rss_mb']:.2f} | "
-                f"{r['mem_delta_pct']:+.2f}% | {r['base_wall_ms']:.1f} | {r['cand_wall_ms']:.1f} | "
-                f"{r['wall_delta_pct']:+.2f}% | {r['parity']} |"
-            )
-        else:
-            lines.append(
-                f"| `{r['id']}` | {r['category']} | {r['base_rss_mb']:.2f} | {r['cand_rss_mb']:.2f} | "
-                f"- | {r['base_wall_ms']:.1f} | {r['cand_wall_ms']:.1f} | - | {r['status']} |"
-            )
+
+    for eng in engines:
+        eng_rows = [rec["results"][eng] for rec in pair_records]
+        ok = [r for r in eng_rows if r["status"] == "OK"]
+        oom = sum(1 for r in eng_rows if r["status"] == "OOM")
+        to = sum(1 for r in eng_rows if r["status"] == "TIMEOUT")
+        err = sum(1 for r in eng_rows if r["status"] == "ERROR")
+        mean_rss = (sum(r["peak_rss_mb"] for r in ok) / len(ok)) if ok else 0.0
+        mean_time = (sum(r["wall_time_ms"] for r in ok) / len(ok)) if ok else 0.0
+        lines.append(
+            f"| `{eng}` | {len(ok)} | {oom} | {to} | {err} | {mean_rss:.2f} | {mean_time:.1f} |"
+        )
+
+    lines.append("")
+    lines.append("## Per-Pair Results")
+    lines.append("")
+
+    header = "| Pair ID | Category |"
+    sep = "| :--- | :--- |"
+    for eng in engines:
+        header += f" `{eng}` RSS (MB) | `{eng}` Time (ms) | `{eng}` Status |"
+        sep += " ---: | ---: | :--- |"
+    lines.append(header)
+    lines.append(sep)
+
+    for rec in pair_records:
+        row_str = f"| `{rec['id']}` | {rec['category']} |"
+        for eng in engines:
+            res = rec["results"][eng]
+            status_disp = res.get("parity", res["status"]) if res["status"] == "OK" else res["status"]
+            row_str += f" {res['peak_rss_mb']:.2f} | {res['wall_time_ms']:.1f} | {status_disp} |"
+        lines.append(row_str)
 
     with open(md_path, "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
@@ -246,20 +307,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run batch comparative benchmarks over test_suite.json."
     )
-    parser.add_argument("--executable", default=default_exe, help="Path to pompeiu_hausdorff binary")
-    parser.add_argument("--manifest", default=default_manifest, help="Path to test_suite.json")
+    parser.add_argument("--executable", default=default_exe)
+    parser.add_argument("--manifest", default=default_manifest)
+    parser.add_argument("--engines", nargs="+", default=None, choices=ENGINE_CHOICES)
     parser.add_argument("--baseline-engine", default="best_first", choices=ENGINE_CHOICES)
     parser.add_argument("--candidate-engine", default="idastar", choices=ENGINE_CHOICES)
-    parser.add_argument("--tol", default=None, help="Override tolerance for all pairs (e.g., 1e-4)")
-    parser.add_argument("--timeout", type=float, default=30.0, help="Per-run timeout in seconds (default: 30.0)")
-    parser.add_argument("--filter", default=None, help="Glob filter on pair id (e.g., '*107100*')")
-    parser.add_argument("--categories", nargs="*", default=None, help="Filter by category names")
-    parser.add_argument("--max-pairs", type=int, default=0, help="Max pairs to run (0 = all)")
-    parser.add_argument("--stratified", action="store_true", help="Sample round-robin across categories when --max-pairs > 0")
-    parser.add_argument("--output-csv", default=default_csv, help="Output CSV path")
-    parser.add_argument("--output-md", default=default_md, help="Output Markdown summary path")
+    parser.add_argument("--tol", default=None)
+    parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument("--memory-limit-mb", type=float, default=0.0, help="RLIMIT_AS cap in MB (0 = unlimited)")
+    parser.add_argument("--filter", default=None, help="Glob filter on pair id")
+    parser.add_argument("--exclude-filter", default=None, help="Glob exclude filter on pair id")
+    parser.add_argument("--categories", nargs="*", default=None)
+    parser.add_argument("--max-pairs", type=int, default=0)
+    parser.add_argument("--stratified", action="store_true")
+    parser.add_argument("--output-csv", default=default_csv)
+    parser.add_argument("--output-md", default=default_md)
 
     args = parser.parse_args()
+    engines = args.engines if args.engines else [args.baseline_engine, args.candidate_engine]
 
     if not os.path.isfile(args.executable):
         sys.exit(f"Error: Executable not found at {args.executable}")
@@ -272,6 +337,7 @@ def main() -> None:
     pairs = select_pairs(
         manifest.get("pairs", []),
         filter_pattern=args.filter,
+        exclude_filter=args.exclude_filter,
         categories=args.categories,
         max_pairs=args.max_pairs,
         stratified=args.stratified,
@@ -279,12 +345,15 @@ def main() -> None:
     if not pairs:
         sys.exit("Error: No pairs matched the selection criteria.")
 
-    print("=" * 80)
-    print(f"BATCH BENCHMARK SUITE: {args.baseline_engine} vs {args.candidate_engine}")
-    print(f"Selected pairs: {len(pairs)} | Per-run timeout: {args.timeout}s")
-    print("=" * 80)
+    mem_label = f"{args.memory_limit_mb:.0f} MB" if args.memory_limit_mb > 0 else "Unlimited"
+    print("=" * 84)
+    print(f"BATCH BENCHMARK SUITE: {' vs '.join(engines)}")
+    print(f"Selected pairs: {len(pairs)} | Memory limit: {mem_label} | Timeout: {args.timeout}s")
+    print("=" * 84)
 
-    rows: List[Dict[str, Any]] = []
+    csv_rows: List[Dict[str, Any]] = []
+    pair_records: List[Dict[str, Any]] = []
+
     for idx, pair in enumerate(pairs, start=1):
         mesh_a = os.path.join(PROJECT_DIR, pair["mesh_a"])
         mesh_b = os.path.join(PROJECT_DIR, pair["mesh_b"])
@@ -296,83 +365,74 @@ def main() -> None:
             print(f"[{idx}/{len(pairs)}] [SKIP] Missing mesh file for {pair['id']}")
             continue
 
-        print(f"[{idx}/{len(pairs)}] Running {pair['id']} ({pair.get('category', '')}, tol={tol})...")
-        base_res = run_timed_profile(
-            args.executable, mesh_a, mesh_b, tol, max_factor, normalize,
-            args.baseline_engine, args.timeout,
-        )
-        cand_res = run_timed_profile(
-            args.executable, mesh_a, mesh_b, tol, max_factor, normalize,
-            args.candidate_engine, args.timeout,
-        )
+        print(f"[{idx}/{len(pairs)}] {pair['id']} ({pair.get('category', '')}, tol={tol})")
+        results_by_eng: Dict[str, Dict[str, Any]] = {}
+        base_eng = engines[0]
 
-        if base_res["status"] == "OK" and cand_res["status"] == "OK":
-            cmp = compute_comparison_metrics(base_res, cand_res, tol=tol, normalize=normalize)
-            row = {
-                "id": pair["id"],
-                "category": pair.get("category", ""),
-                "tol": tol,
-                "status": "OK",
-                "base_rss_mb": base_res["peak_rss_mb"],
-                "cand_rss_mb": cand_res["peak_rss_mb"],
-                "mem_delta_pct": cmp["mem_pct"],
-                "base_wall_ms": base_res["wall_time_ms"],
-                "cand_wall_ms": cand_res["wall_time_ms"],
-                "wall_delta_pct": cmp["wall_pct"],
-                "base_faces": base_res["subdivided_faces"],
-                "cand_faces": cand_res["subdivided_faces"],
-                "base_lower": base_res["lower"],
-                "base_upper": base_res["upper_max"],
-                "cand_lower": cand_res["lower"],
-                "cand_upper": cand_res["upper_max"],
-                "parity": cmp["parity_summary"],
-            }
-            print(
-                f"    RSS: {row['base_rss_mb']:.2f} -> {row['cand_rss_mb']:.2f} MB ({row['mem_delta_pct']:+.2f}%) | "
-                f"Time: {row['base_wall_ms']:.1f} -> {row['cand_wall_ms']:.1f} ms ({row['wall_delta_pct']:+.2f}%) | "
-                f"{row['parity']}"
+        for eng in engines:
+            res = run_timed_profile(
+                args.executable,
+                mesh_a,
+                mesh_b,
+                tol,
+                max_factor,
+                normalize,
+                eng,
+                args.timeout,
+                memory_limit_mb=args.memory_limit_mb,
             )
-        else:
-            status_label = f"{base_res['status']}/{cand_res['status']}"
-            row = {
+            if eng != base_eng and res["status"] == "OK":
+                res["parity"] = check_parity(results_by_eng[base_eng], res, tol, normalize)
+            elif res["status"] == "OK":
+                res["parity"] = "OK"
+
+            results_by_eng[eng] = res
+            status_tag = res.get("parity", res["status"]) if res["status"] == "OK" else res["status"]
+            print(
+                f"    {eng:<18} | RSS={res['peak_rss_mb']:>7.2f} MB | "
+                f"Time={res['wall_time_ms']:>8.1f} ms | {status_tag}"
+            )
+
+            csv_rows.append(
+                {
+                    "id": pair["id"],
+                    "category": pair.get("category", ""),
+                    "tol": tol,
+                    "memory_limit_mb": args.memory_limit_mb,
+                    "engine": eng,
+                    "status": res["status"],
+                    "parity": status_tag,
+                    "peak_rss_mb": f"{res['peak_rss_mb']:.2f}",
+                    "wall_time_ms": f"{res['wall_time_ms']:.2f}",
+                    "subdivided_faces": res.get("subdivided_faces", 0),
+                    "lower": res.get("lower", ""),
+                    "upper_max": res.get("upper_max", ""),
+                }
+            )
+
+        pair_records.append(
+            {
                 "id": pair["id"],
                 "category": pair.get("category", ""),
-                "tol": tol,
-                "status": status_label,
-                "base_rss_mb": base_res["peak_rss_mb"],
-                "cand_rss_mb": cand_res["peak_rss_mb"],
-                "mem_delta_pct": 0.0,
-                "base_wall_ms": base_res["wall_time_ms"],
-                "cand_wall_ms": cand_res["wall_time_ms"],
-                "wall_delta_pct": 0.0,
-                "base_faces": 0,
-                "cand_faces": 0,
-                "base_lower": float("nan"),
-                "base_upper": float("nan"),
-                "cand_lower": float("nan"),
-                "cand_upper": float("nan"),
-                "parity": status_label,
+                "results": results_by_eng,
             }
-            print(f"    [WARN] Status={status_label}")
-
-        rows.append(row)
+        )
 
     os.makedirs(os.path.dirname(os.path.abspath(args.output_csv)), exist_ok=True)
-    if rows:
-        fieldnames = list(rows[0].keys())
+    if csv_rows:
         with open(args.output_csv, "w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer = csv.DictWriter(handle, fieldnames=list(csv_rows[0].keys()))
             writer.writeheader()
-            writer.writerows(rows)
+            writer.writerows(csv_rows)
 
     write_markdown_summary(
-        args.output_md, rows, args.baseline_engine, args.candidate_engine, args.tol
+        args.output_md, pair_records, engines, args.memory_limit_mb, args.timeout
     )
 
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 84)
     print(f"[OK] CSV saved to:      {args.output_csv}")
     print(f"[OK] Markdown saved to: {args.output_md}")
-    print("=" * 80)
+    print("=" * 84)
 
 
 if __name__ == "__main__":
